@@ -2,11 +2,7 @@ import re
 import decimal
 import datetime
 
-# python 3.8+ compatibility
-try:  # pragma: no cover
-    from collections import abc
-except ImportError:  # pragma: no cover
-    import collections as abc
+from collections import abc
 
 import mt940
 

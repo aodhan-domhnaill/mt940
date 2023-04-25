@@ -11,16 +11,17 @@ import (
 )
 
 type Tag struct {
-	id     int
-	re     *regexp.Regexp
-	logger *log.Logger
-	name   string
-	slug   string
+	id      int
+	re      *regexp.Regexp
+	logger  *log.Logger
+	pattern string
+	name    string
+	slug    string
 }
 
 func NewTag() *Tag {
 	t := &Tag{}
-	t.re = regexp.MustCompile(t.pattern())
+	t.re = regexp.MustCompile(t.pattern)
 	t.name = strings.ReplaceAll(fmt.Sprintf("%T", t), "*", "")
 	t.slug = t.toSlug(t.name)
 	t.logger = log.New(os.Stderr, "tag"+t.slug, 0)
@@ -32,11 +33,7 @@ func (t *Tag) toSlug(name string) string {
 	return strings.ToLower(strings.Join(words, "_"))
 }
 
-func (t *Tag) pattern() string {
-	panic("abstract method pattern called")
-}
-
-func (t *Tag) parse(transactions *Transactions, value string) map[string]string {
+func (t *Tag) Parse(transactions *Transactions, value string) map[string]string {
 	match := t.re.FindStringSubmatch(value)
 	if match != nil {
 		t.logger.Debugf("matched (%d) %q against %q, got: %v", len(value), value, t.pattern(), match[1:])
@@ -53,7 +50,7 @@ func (t *Tag) parse(transactions *Transactions, value string) map[string]string 
 	return result
 }
 
-func (t *Tag) call(transactions *Transactions, value string) string {
+func (t *Tag) Call(transactions *Transactions, value string) string {
 	return value
 }
 
@@ -74,7 +71,7 @@ type DateTimeIndication struct {
 }
 
 func (d *DateTimeIndication) Parse(transactions Transactions, value string) interface{} {
-	data := d.Tag.Parse(transactions, value).(map[string]string)
+	data := d.Tag.Parse(&transactions, value)
 	year, _ := strconv.Atoi("20" + data["year"])
 	month, _ := strconv.Atoi(data["month"])
 	day, _ := strconv.Atoi(data["day"])
@@ -92,74 +89,14 @@ func (d *DateTimeIndication) Parse(transactions Transactions, value string) inte
 	return map[string]DateTime{"date": dateTime}
 }
 
-func NewDateTimeIndication() *DateTimeIndication {
-	d := new(DateTimeIndication)
-	d.id = 13
-	d.pattern = `(?x)^(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<hour>[0-9]{2})(?P<minute>[0-9]{2})(?:\+(?P<offset>[0-9]{4}))?`
-	d.re = regexp.MustCompile(d.pattern)
-	return d
-}
-
-type TransactionReferenceNumber struct {
-	Tag
-}
-
-func NewTransactionReferenceNumber() *TransactionReferenceNumber {
-	t := new(TransactionReferenceNumber)
-	t.id = 20
-	t.pattern = `.{0,16}`
-	t.re = regexp.MustCompile(t.pattern)
-	return t
-}
-
-type RelatedReference struct {
-	Tag
-}
-
-func NewRelatedReference() *RelatedReference {
-	r := new(RelatedReference)
-	r.id = 21
-	r.pattern = `.{0,16}`
-	r.re = regexp.MustCompile(r.pattern)
-	return r
-}
-
-type AccountIdentification struct {
-	Tag
-}
-
-func NewAccountIdentification() *AccountIdentification {
-	a := new(AccountIdentification)
-	a.id = 25
-	a.pattern = `.{0,35}`
-	a.re = regexp.MustCompile(a.pattern)
-	return a
-}
-
-type StatementNumber struct {
-	Tag
-}
-
 func (s *StatementNumber) Parse(transactions Transactions, value string) interface{} {
-	data := s.Tag.Parse(transactions, value).(map[string]string)
+	data := s.Tag.Parse(&transactions, value)
 	statementNumber, _ := strconv.Atoi(data["statement_number"])
 	sequenceNumber, _ := strconv.Atoi(data["sequence_number"])
 	return map[string][]int{"numbers": []int{statementNumber, sequenceNumber}}
 }
 
-func NewStatementNumber() *StatementNumber {
-	s := new(StatementNumber)
-	s.id = 28
-	s.pattern = `(?x)^(?P<statement_number>[0-9]{1,5})(?:/?(?P<sequence_number>[0-9]{1,5}))?$`
-	s.re = regexp.MustCompile(s.pattern)
-	return s
-}
-
-type DateTimeIndication struct {
-	Tag
-}
-
-func (d *DateTimeIndication) Call(transactions *Transactions, value *Value) map[string]interface{} {
+func (d *DateTimeIndication) Call(transactions *Transactions, value string) map[string]interface{} {
 	data := d.Tag.Call(transactions, value)
 	return map[string]interface{}{
 		"date": &DateTime{
@@ -304,8 +241,8 @@ type BalanceBase struct {
 	Tag
 }
 
-func (bb *BalanceBase) call(transactions, value interface{}) interface{} {
-	data := bb.Tag.call(transactions, value).(map[string]interface{})
+func (bb *BalanceBase) Call(transactions, value interface{}) interface{} {
+	data := bb.Tag.Call(transactions, value)
 	data["amount"] = Amount(data)
 	data["date"] = Date(data)
 	return map[string]interface{}{
@@ -358,14 +295,16 @@ type Statement struct {
 	Tag
 }
 
-func (s *Statement) parsePattern() *regexp.Regexp {
-	pattern := `^(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?:(?P<entry_month>[0-9]{2})(?P<entry_day>[0-9]{2}))?(?P<status>R?[DC])(?:(?P<funds_code>[A-Z])[\n ]?)?(?P<amount>[[0-9],]{1,15})(?:(?P<id>[A-Z][A-Z0-9 ]{3}))?((?P<customer_reference>(?:(?!//)[^\n]){0,16}))(?://(?P<bank_reference>.{0,23}))?(?:\n?(?P<extra_details>.{0,34}))?$`
-	return regexp.MustCompile(pattern)
+func NewStatement() *Statement {
+	return &Statement{
+		Tag{
+			pattern: `^(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?:(?P<entry_month>[0-9]{2})(?P<entry_day>[0-9]{2}))?(?P<status>R?[DC])(?:(?P<funds_code>[A-Z])[\n ]?)?(?P<amount>[[0-9],]{1,15})(?:(?P<id>[A-Z][A-Z0-9 ]{3}))?((?P<customer_reference>(?:(?!//)[^\n]){0,16}))(?://(?P<bank_reference>.{0,23}))?(?:\n?(?P<extra_details>.{0,34}))?$`,
+		},
+	}
 }
 
 func (s *Statement) Parse(transactions *Transactions, value string) map[string]interface{} {
-	var data = make(map[string]interface{})
-	data = s.Tag.Parse(transactions, value)
+	data := s.Tag.Parse(transactions, value)
 	if _, ok := data["currency"]; !ok {
 		data["currency"] = transactions.Currency
 	}
@@ -375,13 +314,13 @@ func (s *Statement) Parse(transactions *Transactions, value string) map[string]i
 
 	if data["entry_day"] != nil && data["entry_month"] != nil {
 		entry_date := NewDate(data["entry_day"].(string), data["entry_month"].(string), date.Year)
+		entry_date := time.Date()
 
+		year := 0
 		if date.After(entry_date) && date.Sub(entry_date).Hours()/24 >= 330 {
-			year := 1
+			year = 1
 		} else if entry_date.After(date) && entry_date.Sub(date).Hours()/24 >= 330 {
-			year := -1
-		} else {
-			year := 0
+			year = -1
 		}
 
 		data["entry_date"] = entry_date
@@ -496,7 +435,7 @@ func (se SumEntries) Pattern() string {
 }
 
 func (se SumEntries) Call(transactions []Transaction, value string) map[string]interface{} {
-	data := se.Tag.Call(transactions, value).(map[string]interface{})
+	data := se.Tag.Call(transactions, value)
 	data["status"] = se.status
 
 	return map[string]interface{}{se.Slug(): SumAmount{

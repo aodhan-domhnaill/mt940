@@ -7,73 +7,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type Model struct{}
-
-type DateTime struct {
-	time.Time
-	Model
-}
-
-func (dt DateTime) String() string {
-	return dt.Format("2006-01-02 15:04:05.999999999 -0700")
-}
-
-func NewDateTime(year, month, day, hour, minute, second, microsecond string, tzinfo *time.Location, offset int) DateTime {
-	var y int
-	if i, err := strconv.Atoi(year); err == nil {
-		if i < 1000 {
-			y = i + 2000
-		} else {
-			y = i
-		}
-	}
-	m, _ := strconv.Atoi(month)
-	d, _ := strconv.Atoi(day)
-	hh, _ := strconv.Atoi(hour)
-	mm, _ := strconv.Atoi(minute)
-	ss, _ := strconv.Atoi(second)
-	ms, _ := strconv.Atoi(microsecond)
-
-	if tzinfo != nil {
-		dt := time.Date(y, time.Month(m), d, hh, mm, ss, ms*1000, tzinfo)
-		return DateTime{dt, Model{}}
-	} else {
-		dt := time.Date(y, time.Month(m), d, hh, mm, ss, ms*1000, time.Local)
-		if offset != 0 {
-			tz := time.FixedZone("", offset)
-			dt = dt.In(tz)
-		}
-		return DateTime{dt, Model{}}
-	}
-}
-
-type Date struct {
-	time.Time
-	Model
-}
-
-func (d Date) String() string {
-	return d.Format("2006-01-02")
-}
-
-func NewDate(year, month, day string) Date {
-	var y int
-	if i, err := strconv.Atoi(year); err == nil {
-		if i < 1000 {
-			y = i + 2000
-		} else {
-			y = i
-		}
-	}
-	m, _ := strconv.Atoi(month)
-	d, _ := strconv.Atoi(day)
-
-	dt := time.Date(y, time.Month(m), d, 0, 0, 0, 0, time.Local)
-	return Date{dt, Model{}}
-}
 
 type Amount struct {
 	amount   *big.Float

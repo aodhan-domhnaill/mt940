@@ -5,8 +5,11 @@ import (
 )
 
 func TestTag_Parse(t *testing.T) {
-	for _, tag := range Tags {
+	for id, tag := range Tags {
 		t.Run(tag.name, func(t *testing.T) {
+			if id != tag.id {
+				t.Errorf("mismatched id %v != %v", id, tag.id)
+			}
 			for _, ex := range tag.examples {
 				out, err := tag.Parse(ex)
 				groupNames := tag.re.SubexpNames()

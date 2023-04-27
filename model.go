@@ -13,24 +13,41 @@ var (
 )
 
 type Transaction struct {
+	TransactionReferenceNumber string
 }
 
 type Transactions struct {
-	transactions []Transaction
+	transactions          []Transaction
+	AccountIdentification string
+	StatementNumber       string
+	StatementSeqNumber    string
 }
 
-func (ts *Transactions) AddTag(t *Tag, r *TagResults) error {
-	switch t.id {
-	default:
-		return ErrTagDoesNotApply
-	}
+type TagParser interface {
+	AddTag(t *Tag, r TagResults) *TagError
 }
 
-func (tr *Transaction) AddTag(t *Tag, r *TagResults) error {
+func (ts *Transactions) AddTag(t *Tag, r TagResults) *TagError {
 	switch t.id {
+	case "25":
+		ts.AccountIdentification = r["account_identification"]
+	case "28C":
+		ts.StatementNumber = r["statement_number"]
+		ts.StatementSeqNumber = r["sequence_number"]
 	default:
-		return ErrTagDoesNotApply
+		return &TagError{ErrTagDoesNotApply, t}
 	}
+	return nil
+}
+
+func (tr *Transaction) AddTag(t *Tag, r TagResults) *TagError {
+	switch t.id {
+	case "20":
+		tr.TransactionReferenceNumber = r["transaction_reference"]
+	default:
+		return &TagError{ErrTagDoesNotApply, t}
+	}
+	return nil
 }
 
 func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
@@ -43,7 +60,7 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
 	if len(tagIndexes) == 0 {
 		return nil, ErrNoTagsFound
 	}
-	tr := Transaction{}
+	tr := &Transaction{}
 	for i, inds := range tagIndexes {
 		start := tagIndexes[i][0]
 		end := len(data)
@@ -63,12 +80,24 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
 			return nil, err
 		}
 
-		if err := tr.AddTag(&tag, &result); err == ErrTagDoesNotApply {
-			if err := t.AddTag(&tag, &result); err != nil {
-				return nil, fmt.Errorf("%v for tag %v", err, tag.id)
+		{
+			parsers := []TagParser{
+				tr, t,
 			}
-		} else if err != nil {
-			return nil, err
+
+			var err *TagError
+			for _, p := range parsers {
+				err = p.AddTag(&tag, result)
+				if err != nil && err.error == ErrTagDoesNotApply {
+					continue
+				} else {
+					break
+				}
+			}
+
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -14,6 +14,11 @@ type Tag struct {
 	examples []string
 }
 
+type TagError struct {
+	error
+	*Tag
+}
+
 type TagResults map[string]string
 
 var (
@@ -192,18 +197,18 @@ var Tags = map[string]Tag{
 	},
 }
 
-func (t *Tag) Parse(value string) (TagResults, error) {
+func (t *Tag) Parse(value string) (TagResults, *TagError) {
 	ind := tagRegex.FindStringIndex(value)
 	if ind == nil {
-		return nil, ErrMisformatedTag
+		return nil, &TagError{ErrMisformatedTag, t}
 	}
 
 	if t.re == nil {
-		return nil, ErrNotImplemented
+		return nil, &TagError{ErrNotImplemented, t}
 	}
 	match := t.re.FindStringSubmatch(value[ind[1]:])
 	if match == nil {
-		return nil, ErrTagDidNotParse
+		return nil, &TagError{ErrTagDidNotParse, t}
 	}
 
 	result := make(map[string]string)

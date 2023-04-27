@@ -20,10 +20,13 @@ type TagResults map[string]string
 var (
 	ErrTagIdMismatch  = errors.New("mismatched tag id")
 	ErrNotImplemented = errors.New("not implemented")
+	ErrMisformatedTag = errors.New("tag is misformatted")
+	ErrTagDidNotParse = errors.New("tag parsing failed")
 )
 
 var (
 	balanceRegexp = regexp.MustCompile(`^(?P<status>[DC])(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
+	tagRegex      = regexp.MustCompile("^:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):")
 )
 
 var Tags = map[string]Tag{
@@ -161,7 +164,7 @@ var Tags = map[string]Tag{
 	},
 	"NA_2": Tag{
 		name: "Statement",
-		re:   regexp.MustCompile(`^(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?:(?P<entry_month>[0-9]{2})(?P<entry_day>[0-9]{2}))?(?P<status>R?[DC])(?:(?P<funds_code>[A-Z])[\n ]?)?(?P<amount>[[0-9],]{1,15})(?:(?P<id>[A-Z][A-Z0-9 ]{3}))?((?P<customer_reference>(?:(?!//)[^\n]){0,16}))(?://(?P<bank_reference>.{0,23}))?(?:\n?(?P<extra_details>.{0,34}))?$`),
+		re:   regexp.MustCompile(`^(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?:(?P<entry_month>[0-9]{2})(?P<entry_day>[0-9]{2}))?(?P<status>R?[DC])(?:(?P<funds_code>[A-Z])[\n ]?)?(?P<amount>[[0-9],]{1,15})(?:(?P<id>[A-Z][A-Z0-9 ]{3}))?((?P<customer_reference>(?:(?:[^/]|/[^/])[^\n]){0,16}))(?://(?P<bank_reference>.{0,23}))?(?:\n?(?P<extra_details>.{0,34}))?$`),
 	},
 	"NA_3": Tag{
 		name: "StatementASNB",
@@ -195,16 +198,22 @@ func (t *Tag) toSlug(name string) string {
 }
 
 func (t *Tag) Parse(value string) (TagResults, error) {
-	match := t.re.FindStringSubmatch(value)
+	ind := tagRegex.FindStringIndex(value)
+	if ind == nil {
+		return nil, ErrMisformatedTag
+	}
+
+	if t.re == nil {
+		return nil, ErrNotImplemented
+	}
+	match := t.re.FindStringSubmatch(value[ind[1]:])
 	if match == nil {
-		return nil, errors.New("match failed")
+		return nil, ErrTagDidNotParse
 	}
 
 	result := make(map[string]string)
 	for i, name := range t.re.SubexpNames() {
-		if i != 0 && name != "" {
-			result[name] = match[i]
-		}
+		result[name] = match[i]
 	}
 	return result, nil
 }

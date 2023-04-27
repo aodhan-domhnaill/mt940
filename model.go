@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"regexp"
 )
 
 var (
@@ -34,7 +33,6 @@ func (tr *Transaction) AddTag(t *Tag, r *TagResults) error {
 }
 
 func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
-	tagRegex := regexp.MustCompile("^:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):")
 	data, err := ioutil.ReadAll(input)
 	if err != nil {
 		return nil, err

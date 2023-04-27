@@ -3,7 +3,6 @@ package mt940
 import (
 	"errors"
 	"regexp"
-	"strings"
 )
 
 type Tag struct {
@@ -20,13 +19,14 @@ type TagResults map[string]string
 var (
 	ErrTagIdMismatch  = errors.New("mismatched tag id")
 	ErrNotImplemented = errors.New("not implemented")
+	ErrNotExist       = errors.New("tag does not exist")
 	ErrMisformatedTag = errors.New("tag is misformatted")
 	ErrTagDidNotParse = errors.New("tag parsing failed")
 )
 
 var (
 	balanceRegexp = regexp.MustCompile(`^(?P<status>[DC])(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
-	tagRegex      = regexp.MustCompile("^:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):")
+	tagRegex      = regexp.MustCompile(`:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):`)
 )
 
 var Tags = map[string]Tag{
@@ -192,11 +192,6 @@ var Tags = map[string]Tag{
 	},
 }
 
-func (t *Tag) toSlug(name string) string {
-	words := regexp.MustCompile(`[A-Z][a-z]+`).FindAllString(name, -1)
-	return strings.ToLower(strings.Join(words, "_"))
-}
-
 func (t *Tag) Parse(value string) (TagResults, error) {
 	ind := tagRegex.FindStringIndex(value)
 	if ind == nil {
@@ -216,16 +211,4 @@ func (t *Tag) Parse(value string) (TagResults, error) {
 		result[name] = match[i]
 	}
 	return result, nil
-}
-
-func (t *Tag) Call(transactions *Transactions, value string) string {
-	return value
-}
-
-func (t *Tag) ID() string {
-	return t.id
-}
-
-func (t *Tag) Name() string {
-	return t.name
 }

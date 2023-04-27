@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrTagDoesNotApply = errors.New("tag doesn't apply to this struct")
+	ErrNoTagsFound     = errors.New("no tags found")
 )
 
 type Transaction struct {
@@ -39,6 +40,9 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
 	}
 
 	tagIndexes := tagRegex.FindAllIndex(data, -1)
+	if len(tagIndexes) == 0 {
+		return nil, ErrNoTagsFound
+	}
 	tr := Transaction{}
 	for i, inds := range tagIndexes {
 		start := tagIndexes[i][0]
@@ -47,11 +51,11 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
 			end = tagIndexes[i+1][0]
 		}
 		block := data[start:end]
-		id := string(data[inds[0]:inds[1]])
+		// strip : off beginning and end
+		id := string(data[inds[0]+1 : inds[1]-1])
 		tag, ok := Tags[id]
 		if !ok {
-			fmt.Errorf("tag not found %v", id)
-			return nil, ErrNotImplemented
+			return nil, fmt.Errorf("%v for tag %v", ErrNotExist, id)
 		}
 
 		result, err := tag.Parse(string(block))
@@ -61,8 +65,7 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
 
 		if err := tr.AddTag(&tag, &result); err == ErrTagDoesNotApply {
 			if err := t.AddTag(&tag, &result); err != nil {
-				fmt.Errorf("tag %v does not apply", tag.id)
-				return nil, err
+				return nil, fmt.Errorf("%v for tag %v", err, tag.id)
 			}
 		} else if err != nil {
 			return nil, err

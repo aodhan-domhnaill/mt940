@@ -3,6 +3,7 @@ package mt940
 import (
 	"errors"
 	"regexp"
+	"strings"
 )
 
 type Tag struct {
@@ -17,6 +18,7 @@ type Tag struct {
 type TagError struct {
 	error
 	*Tag
+	Value string
 }
 
 type TagResults map[string]string
@@ -200,15 +202,15 @@ var Tags = map[string]Tag{
 func (t *Tag) Parse(value string) (TagResults, *TagError) {
 	ind := tagRegex.FindStringIndex(value)
 	if ind == nil {
-		return nil, &TagError{ErrMisformatedTag, t}
+		return nil, &TagError{ErrMisformatedTag, t, value}
 	}
 
 	if t.re == nil {
-		return nil, &TagError{ErrNotImplemented, t}
+		return nil, &TagError{ErrNotImplemented, t, value}
 	}
-	match := t.re.FindStringSubmatch(value[ind[1]:])
+	match := t.re.FindStringSubmatch(strings.TrimSpace(value[ind[1]:]))
 	if match == nil {
-		return nil, &TagError{ErrTagDidNotParse, t}
+		return nil, &TagError{ErrTagDidNotParse, t, value}
 	}
 
 	result := make(map[string]string)

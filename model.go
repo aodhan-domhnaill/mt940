@@ -35,7 +35,7 @@ func (ts *Transactions) AddTag(t *Tag, r TagResults) *TagError {
 		ts.StatementNumber = r["statement_number"]
 		ts.StatementSeqNumber = r["sequence_number"]
 	default:
-		return &TagError{ErrTagDoesNotApply, t}
+		return &TagError{ErrTagDoesNotApply, t, ""}
 	}
 	return nil
 }
@@ -45,7 +45,7 @@ func (tr *Transaction) AddTag(t *Tag, r TagResults) *TagError {
 	case "20":
 		tr.TransactionReferenceNumber = r["transaction_reference"]
 	default:
-		return &TagError{ErrTagDoesNotApply, t}
+		return &TagError{ErrTagDoesNotApply, t, ""}
 	}
 	return nil
 }

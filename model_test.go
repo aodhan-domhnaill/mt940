@@ -32,6 +32,14 @@ func TestTransactions_Parse(t *testing.T) {
 			want:    []Transaction{},
 			wantErr: false,
 		},
+		{
+			name: "mBank",
+			args: args{
+				input: must(os.Open("mBank/mt940.sta")),
+			},
+			want:    []Transaction{},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

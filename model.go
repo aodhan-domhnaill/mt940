@@ -5,15 +5,28 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"regexp"
+	"time"
+
+	"golang.org/x/text/currency"
 )
 
 var (
-	ErrTagDoesNotApply = errors.New("tag doesn't apply to this struct")
-	ErrNoTagsFound     = errors.New("no tags found")
+	ErrTagDoesNotApply   = errors.New("tag doesn't apply to this struct")
+	ErrNoTagsFound       = errors.New("no tags found")
+	ErrTagResultsMissing = errors.New("missing expected tag results fields")
 )
+
+type Balance struct {
+	Timestamp *time.Time
+	Status    string
+	Amount    float64 // TODO make fixed point
+	Currency  currency.Unit
+}
 
 type Transaction struct {
 	TransactionReferenceNumber string
+	FinalOpeningBalance        Balance
 }
 
 type Transactions struct {
@@ -25,6 +38,24 @@ type Transactions struct {
 
 type TagParser interface {
 	AddTag(t *Tag, r TagResults) *TagError
+}
+
+func (b *Balance) AddTag(t *Tag, r TagResults) *TagError {
+	date, ok := r["date"]
+	if !ok {
+		return &TagError{ErrTagResultsMissing, t, ""}
+	}
+
+	cleanDate := regexp.MustCompile(
+		"([0-9]{2})([0-9]{2})([0-9]{2})").ReplaceAllString(date, "20$1-$2-$3")
+	tt, err := time.Parse(
+		"2006-01-15", cleanDate)
+	if err != nil {
+		return &TagError{err, t, ""}
+	}
+	b.Timestamp = &tt
+
+	return nil
 }
 
 func (ts *Transactions) AddTag(t *Tag, r TagResults) *TagError {
@@ -44,6 +75,8 @@ func (tr *Transaction) AddTag(t *Tag, r TagResults) *TagError {
 	switch t.id {
 	case "20":
 		tr.TransactionReferenceNumber = r["transaction_reference"]
+	case "60F":
+		return tr.FinalOpeningBalance.AddTag(t, r)
 	default:
 		return &TagError{ErrTagDoesNotApply, t, ""}
 	}

@@ -32,7 +32,7 @@ var (
 )
 
 var (
-	balanceRegexp = regexp.MustCompile(`^(?P<status>[DC])(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
+	balanceRegexp = regexp.MustCompile(`^(?P<status>[DC])(?P<date>[0-9]{2}[0-9]{2}[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
 	tagRegex      = regexp.MustCompile(`:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):`)
 )
 
@@ -104,6 +104,25 @@ var Tags = map[string]Tag{
 	"61": Tag{
 		name: "StatementLine",
 		id:   "61",
+		re: regexp.MustCompile(
+			`(?P<year>[0-9]{2})` + // 6!n Value Date (YYMMDD)
+				`(?P<month>[0-9]{2})` +
+				`(?P<day>[0-9]{2})` +
+				`(?P<entry_month>[0-9]{2})?` + // [4!n] Entry Date (MMDD)
+				`(?P<entry_day>[0-9]{2})?` +
+				`(?P<status>R?[DC])` + // 2a Debit/Credit Mark
+				`(?P<funds_code>[A-Z])?` + // [1!a] Funds Code (3rd character of the currency
+				// code, if needed)
+				`[\n ]?` + // apparently some banks (sparkassen) incorporate newlines here
+				// cuscal can also send a space here as well
+				`(?P<amount>[[0-9],]{1,15})` + // 15d Amount
+				`(?P<id>[A-Z][A-Z0-9 ]{3})?` + // 1!a3!c Transaction Type Identification Code
+				// We need the (slow) repeating negative lookahead to search for // so we
+				// don't acciddntly include the bank reference in the customer reference.
+				`(?P<customer_reference>((?:(?:[^/]|/[^/]))[^\n]){0,16})` + // 16x Customer Reference
+				`(//(?P<bank_reference>.{0,23}))?` + // [//23x] Bank Reference
+				`(\n?(?P<extra_details>.{0,34}))?`, // [34x] Supplementary Details
+		),
 		examples: []string{
 			":61:1112021202D43,6N477NONREF",
 			":61:2303010228CK366336,2NTRFArbi/deposit//1323333800",
@@ -185,7 +204,7 @@ var Tags = map[string]Tag{
 	"90": Tag{
 		name: "SumEntries",
 		id:   "90",
-		re:   regexp.MustCompile(`^(?P<number>\d*)(?P<currency>.{3})(?P<amount>[\d,]{1,15})`),
+		re:   regexp.MustCompile(`^(?P<number>[0-9]*)(?P<currency>.{3})(?P<amount>[[0-9],]{1,15})`),
 	},
 	"90D": Tag{
 		name:   "SumDebitEntries",

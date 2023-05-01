@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"regexp"
+	"strings"
 	"time"
 
 	"golang.org/x/text/currency"
@@ -17,16 +17,35 @@ var (
 	ErrTagResultsMissing = errors.New("missing expected tag results fields")
 )
 
+type TransactionDate struct {
+	*time.Time
+}
+
 type Balance struct {
-	Timestamp *time.Time
+	Timestamp TransactionDate
 	Status    string
 	Amount    float64 // TODO make fixed point
 	Currency  currency.Unit
 }
 
+type StatementLine struct {
+	Timestamp         TransactionDate
+	EntryTime         TransactionDate
+	Status            string
+	FundsCode         string
+	TransactionTypeID string
+	CustomerReference string
+	BankReference     string
+	ExtraDetails      string
+	Amount            float64 // TODO make fixed point
+}
+
 type Transaction struct {
+	StatementLine
 	TransactionReferenceNumber string
 	FinalOpeningBalance        Balance
+	FinalClosingBalance        Balance
+	TransactionDetails         string
 }
 
 type Transactions struct {
@@ -40,20 +59,49 @@ type TagParser interface {
 	AddTag(t *Tag, r TagResults) *TagError
 }
 
+func (td *TransactionDate) Parse(year, month, day string) error {
+	if len(year) == 2 && year <= "69" {
+		year = "20" + year
+	} else if len(year) == 2 {
+		year = "19" + year
+	}
+	t, err := time.Parse("2006-01-02", year+"-"+month+"-"+day)
+	if err != nil {
+		return err
+	}
+	td.Time = &t
+	return nil
+}
+
 func (b *Balance) AddTag(t *Tag, r TagResults) *TagError {
-	date, ok := r["date"]
-	if !ok {
-		return &TagError{ErrTagResultsMissing, t, ""}
+	if err := b.Timestamp.Parse(r["year"], r["month"], r["day"]); err != nil {
+		return &TagError{err, t, ""}
 	}
 
-	cleanDate := regexp.MustCompile(
-		"([0-9]{2})([0-9]{2})([0-9]{2})").ReplaceAllString(date, "20$1-$2-$3")
-	tt, err := time.Parse(
-		"2006-01-15", cleanDate)
+	return nil
+}
+
+func (sl *StatementLine) AddTag(t *Tag, r TagResults) *TagError {
+	if err := sl.Timestamp.Parse(r["year"], r["month"], r["day"]); err != nil {
+		return &TagError{err, t, ""}
+	}
+	if err := sl.EntryTime.Parse(r["year"], r["entry_month"], r["entry_day"]); err != nil {
+		return &TagError{err, t, ""}
+	}
+	sl.Status = r["status"]
+	sl.FundsCode = r["funds_code"]
+	_, err := fmt.Sscanf(
+		strings.Replace(r["amount"], ",", ".", -1),
+		"%f", &sl.Amount)
+
 	if err != nil {
 		return &TagError{err, t, ""}
 	}
-	b.Timestamp = &tt
+
+	sl.TransactionTypeID = r["id"]
+	sl.CustomerReference = r["customer_reference"]
+	sl.BankReference = r["bank_reference"]
+	sl.ExtraDetails = r["extra_details"]
 
 	return nil
 }
@@ -77,6 +125,12 @@ func (tr *Transaction) AddTag(t *Tag, r TagResults) *TagError {
 		tr.TransactionReferenceNumber = r["transaction_reference"]
 	case "60F":
 		return tr.FinalOpeningBalance.AddTag(t, r)
+	case "61":
+		tr.StatementLine.AddTag(t, r)
+	case "62F":
+		return tr.FinalClosingBalance.AddTag(t, r)
+	case "86":
+		tr.TransactionDetails = r["transaction_details"]
 	default:
 		return &TagError{ErrTagDoesNotApply, t, ""}
 	}

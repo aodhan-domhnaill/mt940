@@ -32,7 +32,7 @@ var (
 )
 
 var (
-	balanceRegexp = regexp.MustCompile(`^(?P<status>[DC])(?P<date>[0-9]{2}[0-9]{2}[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
+	balanceRegexp = regexp.MustCompile(`^(?P<status>[DC])(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
 	tagRegex      = regexp.MustCompile(`:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):`)
 )
 
@@ -115,7 +115,7 @@ var Tags = map[string]Tag{
 				// code, if needed)
 				`[\n ]?` + // apparently some banks (sparkassen) incorporate newlines here
 				// cuscal can also send a space here as well
-				`(?P<amount>[[0-9],]{1,15})` + // 15d Amount
+				`(?P<amount>[0-9,]{1,15})` + // 15d Amount
 				`(?P<id>[A-Z][A-Z0-9 ]{3})?` + // 1!a3!c Transaction Type Identification Code
 				// We need the (slow) repeating negative lookahead to search for // so we
 				// don't acciddntly include the bank reference in the customer reference.
@@ -126,6 +126,7 @@ var Tags = map[string]Tag{
 		examples: []string{
 			":61:1112021202D43,6N477NONREF",
 			":61:2303010228CK366336,2NTRFArbi/deposit//1323333800",
+			":61:2001010101D65,00NOVBNL47INGB9999999999\n        hr gjlm paulissen    \n  ",
 		},
 	},
 	"86": Tag{

@@ -13,7 +13,7 @@ func TestTag_Parse(t *testing.T) {
 			for _, ex := range tag.examples {
 				out, err := tag.Parse(ex)
 				if err != nil {
-					t.Error(err)
+					t.Error(err, ex, tag.re.String())
 				} else if out == nil {
 					t.Error("output was nil")
 				} else {

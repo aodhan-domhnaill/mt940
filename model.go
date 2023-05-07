@@ -179,6 +179,11 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, ParseError) {
 			return nil, err
 		}
 
+		if id == "20" && tr.TransactionReferenceNumber != "" {
+			t.transactions = append(t.transactions, *tr)
+			tr = &Transaction{}
+		}
+
 		{
 			parsers := []TagParser{
 				tr, t,

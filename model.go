@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,11 +35,15 @@ type TransactionDate struct {
 	*time.Time
 }
 
+type Amount struct {
+	int64 // Hundredths of value (ie. cents)
+}
+
 type Balance struct {
 	Timestamp TransactionDate
 	Status    string
-	Amount    float64 // TODO make fixed point
-	Currency  currency.Unit
+	Amount
+	Currency currency.Unit
 }
 
 type StatementLine struct {
@@ -49,13 +55,14 @@ type StatementLine struct {
 	CustomerReference string
 	BankReference     string
 	ExtraDetails      string
-	Amount            float64 // TODO make fixed point
+	Amount
 }
 
 type Transaction struct {
 	StatementLine
 	TransactionReferenceNumber string
 	FinalOpeningBalance        Balance
+	AvailableBalance           Balance
 	FinalClosingBalance        Balance
 	TransactionDetails         string
 }
@@ -69,6 +76,28 @@ type Transactions struct {
 
 type TagParser interface {
 	AddTag(t *Tag, r TagResults) *TagError
+}
+
+func (amt *Amount) Parse(s string) error {
+	re := regexp.MustCompile(`([0-9]+)(?:,([0-9]{2}))?`)
+	groups := re.FindStringSubmatch(s)
+
+	var decimal string
+	switch len(groups) {
+	case 3:
+		decimal = groups[2]
+	case 2:
+		decimal = "00"
+	default:
+		return ErrMisformatedTag
+	}
+
+	a, err := strconv.Atoi(groups[1] + decimal)
+	if err != nil {
+		return err
+	}
+	amt.int64 = int64(a)
+	return nil
 }
 
 func (td *TransactionDate) Parse(year, month, day string) error {
@@ -89,6 +118,9 @@ func (b *Balance) AddTag(t *Tag, r TagResults) *TagError {
 	if err := b.Timestamp.Parse(r["year"], r["month"], r["day"]); err != nil {
 		return &TagError{err, t, ""}
 	}
+
+	b.Status = r["status"]
+	b.Amount.Parse(r["amount"])
 
 	return nil
 }
@@ -141,6 +173,8 @@ func (tr *Transaction) AddTag(t *Tag, r TagResults) *TagError {
 		tr.StatementLine.AddTag(t, r)
 	case "62F":
 		return tr.FinalClosingBalance.AddTag(t, r)
+	case "64":
+		return tr.AvailableBalance.AddTag(t, r)
 	case "86":
 		tr.TransactionDetails = r["transaction_details"]
 	default:

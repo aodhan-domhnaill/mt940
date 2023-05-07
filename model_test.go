@@ -46,8 +46,8 @@ func TestTransactions_Parse(t *testing.T) {
 			tr := &Transactions{}
 			got, err := tr.Parse(tt.args.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Transactions.Parse() error = %v for tag %v value '%v', wantErr %v",
-					err, err.(*TagError).id, err.(*TagError).Value, tt.wantErr)
+				t.Error(err)
+
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {

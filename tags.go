@@ -1,7 +1,7 @@
 package mt940
 
 import (
-	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -16,24 +16,30 @@ type Tag struct {
 }
 
 type TagError struct {
-	error
+	ParseError
 	*Tag
 	Value string
+}
+
+func (te *TagError) Error() string {
+	return fmt.Sprintf(
+		"tag parsing error: %v on tag %v value %v",
+		te.ParseError.Error(), te.Tag, te.Value)
 }
 
 type TagResults map[string]string
 
 var (
-	ErrTagIdMismatch  = errors.New("mismatched tag id")
-	ErrNotImplemented = errors.New("not implemented")
-	ErrNotExist       = errors.New("tag does not exist")
-	ErrMisformatedTag = errors.New("tag is misformatted")
-	ErrTagDidNotParse = errors.New("tag parsing failed")
+	ErrTagIdMismatch  = NewParseError("mismatched tag id")
+	ErrNotImplemented = NewParseError("not implemented")
+	ErrNotExist       = NewParseError("tag does not exist")
+	ErrMisformatedTag = NewParseError("tag is misformatted")
+	ErrTagDidNotParse = NewParseError("tag parsing failed")
 )
 
 var (
-	balanceRegexp = regexp.MustCompile(`^(?P<status>[DC])(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
-	tagRegex      = regexp.MustCompile(`:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):`)
+	balanceRegexp = regexp.MustCompile(`(?P<status>[DC])(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?P<currency>.{3})(?P<amount>[0-9,]{0,16})`)
+	tagRegex      = regexp.MustCompile(`(?m)^:\n?(?P<full_tag>(?P<tag>[0-9]{2}|NS)(?P<sub_tag>[A-Z])?):`)
 )
 
 var Tags = map[string]Tag{

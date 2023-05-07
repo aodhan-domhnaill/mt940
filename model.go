@@ -11,10 +11,22 @@ import (
 	"golang.org/x/text/currency"
 )
 
+type ParseError interface {
+	error
+}
+
+func NewParseError(s string) ParseError {
+	return errors.New(s)
+}
+
+func WrapParseError(e error) ParseError {
+	return e
+}
+
 var (
-	ErrTagDoesNotApply   = errors.New("tag doesn't apply to this struct")
-	ErrNoTagsFound       = errors.New("no tags found")
-	ErrTagResultsMissing = errors.New("missing expected tag results fields")
+	ErrTagDoesNotApply   = NewParseError("tag doesn't apply to this struct")
+	ErrNoTagsFound       = NewParseError("no tags found")
+	ErrTagResultsMissing = NewParseError("missing expected tag results fields")
 )
 
 type TransactionDate struct {
@@ -137,10 +149,10 @@ func (tr *Transaction) AddTag(t *Tag, r TagResults) *TagError {
 	return nil
 }
 
-func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
+func (t *Transactions) Parse(input io.Reader) ([]Transaction, ParseError) {
 	data, err := ioutil.ReadAll(input)
 	if err != nil {
-		return nil, err
+		return nil, WrapParseError(err)
 	}
 
 	tagIndexes := tagRegex.FindAllIndex(data, -1)
@@ -159,7 +171,7 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
 		id := string(data[inds[0]+1 : inds[1]-1])
 		tag, ok := Tags[id]
 		if !ok {
-			return nil, fmt.Errorf("%v for tag %v", ErrNotExist, id)
+			return nil, &TagError{ErrNotExist, nil, id}
 		}
 
 		result, err := tag.Parse(string(block))
@@ -175,7 +187,7 @@ func (t *Transactions) Parse(input io.Reader) ([]Transaction, error) {
 			var err *TagError
 			for _, p := range parsers {
 				err = p.AddTag(&tag, result)
-				if err != nil && err.error == ErrTagDoesNotApply {
+				if err != nil && err.ParseError == ErrTagDoesNotApply {
 					continue
 				} else {
 					break

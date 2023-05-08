@@ -85,10 +85,6 @@ var Tags = map[string]Tag{
 			":28C:00532/001",
 		},
 	},
-	"NA_1": Tag{
-		name: "BaseBalance",
-		re:   balanceRegexp,
-	},
 	"60": Tag{
 		name: "OpeningBalance",
 		id:   "60",
@@ -194,14 +190,6 @@ var Tags = map[string]Tag{
 		name: "IntermediateOpeningBalance",
 		id:   "60M",
 		re:   balanceRegexp,
-	},
-	"NA_2": Tag{
-		name: "Statement",
-		re:   regexp.MustCompile(`^(?P<year>[0-9]{2})(?P<month>[0-9]{2})(?P<day>[0-9]{2})(?:(?P<entry_month>[0-9]{2})(?P<entry_day>[0-9]{2}))?(?P<status>R?[DC])(?:(?P<funds_code>[A-Z])[\n ]?)?(?P<amount>[[0-9],]{1,15})(?:(?P<id>[A-Z][A-Z0-9 ]{3}))?((?P<customer_reference>(?:(?:[^/]|/[^/])[^\n]){0,16}))(?://(?P<bank_reference>.{0,23}))?(?:\n?(?P<extra_details>.{0,34}))?$`),
-	},
-	"NA_3": Tag{
-		name: "StatementASNB",
-		re:   regexp.MustCompile("(?m)^ (?P<year>[0-9]{2}) # 6!n Value Date (YYMMDD) (?P<month>[0-9]{2}) (?P<day>[0-9]{2}) (?P<entry_month>[0-9]{2})? # [4!n] Entry Date (MMDD) (?P<entry_day>[0-9]{2})? (?P<status>[A-Z]?[DC]) # 2a Debit/Credit Mark (?P<funds_code>[A-Z])? # [1!a] Funds Code (3rd character of the currency code, if needed) \n? # apparently some banks (sparkassen) incorporate newlines here (?P<amount>[[0-9],]{1,15}) # 15d Amount (?P<id>[A-Z][A-Z0-9 ]{3})? # 1!a3!c Transaction Type Identification Code (?P<customer_reference>.{0,34}) # 34x Customer Reference (//(?P<bank_reference>.{0,16}))? # [//16x] Bank Reference (\n?(?P<extra_details>.{0,34}))? # [34x] Supplementary Details $"),
 	},
 	"65": Tag{
 		name: "ForwardAvailableBalance",
